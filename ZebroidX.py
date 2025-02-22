@@ -225,6 +225,47 @@ def menu():
         draw()
         refresh()
 
+
+def end_screen(score):
+    zebra_walking_sprites = [
+        Sprite(f"ZebraWalkPics/zebra-pos-{filename}.png") for filename in range(1, 5)
+    ]
+    selection_index = 0
+
+    refresh()
+    draw()
+    refresh()
+
+
+    options = ["Play", "Quit"]
+
+    while True:
+        refresh()
+
+        # draw the score
+        set_font(FNT_SMALL)
+        align_text_right()
+        draw_text(get_width_adjusted(), 0, f"score: {score}", WHITE)
+        align_text_left()
+
+
+
+        if get_key_pressed("right") or get_button_pressed(JS_PADR):
+            selection_index = (selection_index - 1) % len(options)
+        if get_key_pressed("left")  or get_button_pressed(JS_PADL):
+            selection_index = (selection_index + 1) % len(options)
+        if get_key_pressed("enter") or get_button_pressed(JS_FACE0):
+            return options[selection_index]
+
+        for idx, i in enumerate(options):
+            button_coords = (get_width_adjusted() / 2 * idx + 3, 45)
+            button_outline_color = CYAN if selection_index == idx else (0, 0, 110)
+            draw_rectangle_outline(button_coords[0], button_coords[1], get_width_adjusted() / 2 - 6, 10, button_outline_color)
+            center_text_horizontal()
+            draw_text((get_width_adjusted() / 2 * idx + (get_width_adjusted() / 2) * (idx + 1)) / 2, button_coords[1] + 1 - 4, i, WHITE)
+        draw_sprite(10, 0, zebra_walking_sprites[int((time.time() - start_game_time) / 0.5) % 4])
+        draw()
+
 # Main loop
 asteroids = [Asteroid() for _ in range(10)]
 offset = np.array([1, -1, 1])
@@ -248,12 +289,19 @@ def game():
 
 def main():
     option = menu()
-    if option == "Play":
-        # Main loop
-        while True:
-            refresh()
-            game()
-            draw()
-    elif option == "Quit":
-        return
+
+    while True:
+        if option == "Play":
+            # Main loop
+            while True:
+                refresh()
+                if (score := game()) is not None:
+                    break
+                draw()
+            option = end_screen(score)
+            continue
+        elif option == "Quit":
+            return
+        else:
+            raise "Invalid option given in game"
 main()
