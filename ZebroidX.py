@@ -1,5 +1,6 @@
 import numpy as np
 import time
+from math import sin, cos
 from obj_handler import open_obj
 from random import randint
 from LED import *
@@ -18,11 +19,11 @@ class SpaceObject:
         self.speed = 1
         self.accel = 1
         self.decel = 1
-        self.color = (0, 200, 0)
+        self.color = (0,255,0)
 
     def update(self):
         pass
-    
+
     def _get_rotation_matrix(self):
         theta_x, theta_y, theta_z = self.angle
 
@@ -104,10 +105,13 @@ class Asteroid(SpaceObject):
         
         if self.type == 0:
             obj = open_obj('pyramid.obj')
+            self.hp = 1
         elif self.type == 1:
             obj = open_obj('cube.obj')
+            self.hp = 2
         else:
             obj = open_obj('icosphere.obj')
+            self.hp = 3
 
         SpaceObject.__init__(self, *obj)
 
@@ -115,6 +119,7 @@ class Asteroid(SpaceObject):
         self.scale = 0.25
         brightness = 190
         self.color = color_hsv(randint(0,255), 255, brightness)
+        
 
     def draw_self(self):
         self.angle[0] += 0.1
@@ -126,13 +131,44 @@ class Bullet(SpaceObject):
         self.pos = pos
         self.angle = angle
         self.speed = speed
+        self.color = color_hsv(randint(0,255), 150, 255)
 
     def update(self):
+        global bullets, camera_shake, score
         self.pos += self._get_rotation_matrix() @ np.array([0, 0, self.speed])
+
+        to_remove = None
+
+        for a in asteroids:
+            dist = np.sqrt(np.sum((a.pos - self.pos) ** 2))
+            
+            if dist < 1:
+                a.hp -= 1
+                camera_shake += 0.05
+                bullets.remove(self)
+                del self
+
+                if a.hp == 0:
+                    score += 1
+                    to_remove = a
+                break
+                
+        if to_remove:
+            asteroids.remove(to_remove)
+            del to_remove
 
 class Player(SpaceObject):
     def __init__(self):
         SpaceObject.__init__(self, *open_obj('ship.obj'))
+        self.hue = 0
+        self.value = 0
+        self.saturation = 255
+
+    def draw_self(self):
+        SpaceObject.draw_self(self)
+        self.hue = sin(game_time / 200) * 25 +  100 
+        self.value = 150 + cos(game_time / 100) * 50
+        self.color = color_hsv(self.hue, self.saturation, self.value)
 
 # Constants
 player = Player()
@@ -142,6 +178,7 @@ FOV_V = np.pi / 4 # 45DEG VERT
 FOV_H = FOV_V*A
 SENS = 0.01
 camera = np.asarray([0.1, 0.1, 0.1, 0.1, 0.1])
+camera_shake = 0
 start_game_time = time.time()
 game_time = 0
 
@@ -180,7 +217,7 @@ def filter_faces(z_min, normal, CameraRay, xxs, yys):
         return False        
 
 def move():
-    global bullets
+    global bullets, camera_shake, camera
     MOVE_SPEED = 0.1
 
     camera[3] = (camera[3] + SENS * get_haxis(JS_RSTICK)) % (2 * np.pi)
@@ -191,7 +228,9 @@ def move():
         -np.sin(camera[4]),                     # Y (positive when looking up)
         np.sin(camera[3]) * np.cos(camera[4])   # Z
     ])
-    
+
+    right = np.cross(forward, np.array([0, 0, 1]))
+
     def closest_angel(current, target):
         diff = (target - current) % (2 * math.pi)
         if diff > math.pi:
@@ -207,36 +246,37 @@ def move():
         for a, b in zip(player.angle, ideal_angle)
     ]
 
-    print()
-
     offset = camera[:3] + forward * 2
     vert_offset = -0.05
     player.pos += (offset - player.pos) * merge_am
     R = player._get_rotation_matrix()
     player.pos += R @ np.array([0, vert_offset, -vert_offset])
 
-    if get_button(JS_FACE0):
-        camera[:3] += MOVE_SPEED * forward
+    #if get_button(JS_R1):
+    camera[:3] -= MOVE_SPEED * get_vaxis(JS_LSTICK) * forward
 
-    if get_button(JS_FACE1):
-        camera[:3] -= MOVE_SPEED * forward
+    #if get_button(JS_R2):
+    camera[:3] -+ MOVE_SPEED * get_haxis(JS_LSTICK) * right
 
+    camera[:3] += (np.random.uniform(-1, 1, 3) * camera_shake)
+    camera_shake *= 0.95
+    
     if get_button_pressed(JS_FACE2):
-        bullets.add(Bullet(np.array(player.pos) +  R @ np.array([1.5, 0, 0]),np.array(player.angle), 0.1))
-        bullets.add(Bullet(np.array(player.pos) -  R @ np.array([1.5, 0, 0]),np.array(player.angle), 0.1))
+        bullets.add(Bullet(np.array(player.pos),np.array(player.angle), 0.1))
+        # bullets.add(Bullet(np.array(player.pos) +  R @ np.array([1.5, 0, 0]),np.array(player.angle), 0.1))
+        # bullets.add(Bullet(np.array(player.pos) -  R @ np.array([1.5, 0, 0]),np.array(player.angle), 0.1))
 
 def menu():
     options = ["Play", "Quit"]
 
     selection_index = 0
+    
     while True:
-
         set_font(FNT_NORMAL)
         time_passed = time.time() - start_game_time
         title = "Space" if time_passed // 2 % 2 == 0 else "Zebra"
         center_text_horizontal()
         draw_text(get_width_adjusted() / 2, 0, title, WHITE)
-
 
         if get_key_pressed("down") or get_button_pressed(JS_PADD):
             selection_index = (selection_index - 1) % len(options)
@@ -260,22 +300,31 @@ def menu():
 # Main loop
 asteroids = set(Asteroid() for _ in range(10))
 bullets = set()
+score = 0
 game_time = 0
 # offset = np.array([1, -1, 1])
 
 def game():
+    global game_time
+
     game_time += 1
 
     for a in asteroids:
     #     a.update()
         a.draw_self()
 
-    for b in bullets:
+    for b in list(bullets):
         b.update()
         b.draw_self()
     # player.update()
     player.draw_self()
     move()
+
+def hud():
+    set_font(FNT_SMALL)
+    align_text_right()
+    draw_text(W-3, -3, str(score), CYAN)
+    align_text_left()
 
 def main():
     option = menu()
@@ -284,6 +333,7 @@ def main():
         while True:
             refresh()
             game()
+            hud()
             draw()
     elif option == "Quit":
         return
