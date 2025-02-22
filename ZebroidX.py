@@ -1,6 +1,8 @@
 import numpy as np
+import time
 from obj_handler import open_obj
 from LED import *
+
 set_orientation(1)
 
 # Zebroid X
@@ -22,7 +24,7 @@ FOV_V = np.pi / 4 # 45DEG VERT
 FOV_H = FOV_V*A
 SENS = 0.01
 camera = np.asarray([13, 0.5, 2, 3.3, 0])
-
+start_game_time = time.time()
 
 def project_vertices(vertices, camera):
     cos_hor, sin_hor = np.cos(-camera[3] + np.pi / 2), np.sin(-camera[3] + np.pi / 2)
@@ -124,10 +126,50 @@ def move():
         
     rotate(obj_ship, 0.03, 0.02, 0.05)
 
-# Main loop
-while True:
-    refresh()
-    project_vertices(obj_ship.vertices, camera)
-    draw_model(obj_ship, camera)
-    move()
-    draw()
+def menu():
+    set_orientation(1)
+
+    options = ["Play", "Quit"]
+
+
+    selection_index = 0
+    while True:
+
+        set_font(FNT_NORMAL)
+        time_passed = time.time() - start_game_time
+        title = "Space" if time_passed // 2 % 2 == 0 else "Zebra"
+        center_text_horizontal()
+        draw_text(get_width_adjusted() / 2, 0, title, WHITE)
+
+
+        if get_key_pressed("down"):
+            selection_index = (selection_index - 1) % len(options)
+        if get_key_pressed("up"):
+            selection_index = (selection_index + 1) % len(options)
+        if get_key_pressed("enter"):
+            return options[selection_index]
+
+        set_font(FNT_SMALL)
+        for idx, i in enumerate(options):
+            button_coords = (get_width_adjusted() / 4, 30 + idx * 15)
+            button_outline_color = CYAN if selection_index == idx else GREY
+            draw_rectangle_outline(button_coords[0], button_coords[1], get_width_adjusted() / 2, 10, button_outline_color)
+            center_text_horizontal()
+            draw_text(get_width_adjusted() / 2, button_coords[1] + 1 - 4, i, WHITE)
+
+        draw()
+        refresh()
+
+def main():
+    option = menu()
+    if option == "Play":
+        # Main loop
+        while True:
+            refresh()
+            project_vertices(obj_ship.vertices, camera)
+            draw_model(obj_ship, camera)
+            move()
+            draw()
+    elif option == "Quit":
+        return
+main()
