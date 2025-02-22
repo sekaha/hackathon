@@ -14,9 +14,11 @@ dic = pyphen.Pyphen(lang='en_US')
 
 # Displays the lore of the game; returns the line position of the last line
 def lore(delta):
+	align_text_left()
 	textcolor = (242, 225, 111)
 	offset = -(-50 + delta / 15)
 	refresh(color=(19, 35, 74))
+	
 	# Grab lore from file and store it in a string
 	file = open("lore.txt", "r")
 	lore = file.read()
@@ -34,6 +36,7 @@ def lore(delta):
 	lettersTot = 15
 	lettersUsed = 0
 	lineNum = 0
+
 	for word in loreArr:
 		# Add word to line 
 		if (lettersUsed + len(word) <= lettersTot):
@@ -63,6 +66,7 @@ def lore(delta):
 		draw_text(0, lineNum * 10 + offset, loreLine, textcolor)
 
 	draw()
+
 	return lineNum * 10 + offset
 
 # Displays the lore on the screen
@@ -70,9 +74,13 @@ def display_lore():
 	set_orientation(1)
 	delt = 0
 	while True:
+		if get_key_pressed(' '):
+			return
+		
 		pos = lore(delt)
 		delt += 1
 		# If the position is off the screen, exit
 		if pos < -10:
 			break
+
 display_lore()

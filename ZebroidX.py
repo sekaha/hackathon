@@ -4,6 +4,7 @@ from math import sin, cos
 from obj_handler import open_obj
 from random import randint
 from LED import *
+from lore import display_lore
 
 set_orientation(1)
 
@@ -384,6 +385,10 @@ def hud():
 
 def main():
     option = menu()
+    
+    if level == 0:
+        display_lore()
+
 
     while True:
         if option == "Play":
