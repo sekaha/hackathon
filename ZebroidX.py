@@ -119,10 +119,11 @@ class Asteroid(SpaceObject):
         self.scale = 0.25
         brightness = 190
         self.color = color_hsv(randint(0,255), 255, brightness)
-        
+
+        self.rot = np.random.uniform(-0.075, 0.075, 3)
 
     def draw_self(self):
-        self.angle[0] += 0.1
+        self.angle += self.rot
         SpaceObject.draw_self(self)
 
 class Bullet(SpaceObject):
@@ -131,11 +132,13 @@ class Bullet(SpaceObject):
         self.pos = pos
         self.angle = angle
         self.speed = speed
-        self.color = color_hsv(randint(0,255), 150, 255)
+        self.color = color_hsv(randint(0,255), 180, 233)
+        self.hp = 100
 
     def update(self):
         global bullets, camera_shake, score
         self.pos += self._get_rotation_matrix() @ np.array([0, 0, self.speed])
+        self.hp -= 0.5
 
         to_remove = None
 
@@ -146,13 +149,17 @@ class Bullet(SpaceObject):
                 a.hp -= 1
                 camera_shake += 0.05
                 bullets.remove(self)
-                del self
+                self.hp = 0
 
                 if a.hp == 0:
                     score += 1
                     to_remove = a
                 break
                 
+
+        if self.hp == 0:
+            del self
+        
         if to_remove:
             asteroids.remove(to_remove)
             del to_remove
@@ -166,9 +173,11 @@ class Player(SpaceObject):
 
     def draw_self(self):
         SpaceObject.draw_self(self)
-        self.hue = sin(game_time / 200) * 25 +  100 
+        self.hue = sin(game_time / 200) * 20 +  130
         self.value = 150 + cos(game_time / 100) * 50
         self.color = color_hsv(self.hue, self.saturation, self.value)
+
+score = 0
 
 # Constants
 player = Player()
@@ -178,7 +187,6 @@ FOV_V = np.pi / 4 # 45DEG VERT
 FOV_H = FOV_V*A
 SENS = 0.01
 camera = np.asarray([0.1, 0.1, 0.1, 0.1, 0.1])
-camera_shake = 0
 start_game_time = time.time()
 game_time = 0
 
@@ -289,7 +297,7 @@ def menu():
 
         for idx, i in enumerate(options):
             button_coords = (get_width_adjusted() / 4, 30 + idx * 15)
-            button_outline_color = CYAN if selection_index == idx else GREY
+            button_outline_color = CYAN if selection_index == idx else (0, 0, 110)
             draw_rectangle_outline(button_coords[0], button_coords[1], get_width_adjusted() / 2, 10, button_outline_color)
             center_text_horizontal()
             draw_text(get_width_adjusted() / 2, button_coords[1] + 1 - 4, i, WHITE)
@@ -297,18 +305,66 @@ def menu():
         draw()
         refresh()
 
+
+def end_screen(score):
+    zebra_walking_sprites = [
+        Sprite(f"ZebraWalkPics/zebra-pos-{filename}.png") for filename in range(1, 5)
+    ]
+    selection_index = 0
+
+    refresh()
+    draw()
+    refresh()
+
+
+    options = ["Play", "Quit"]
+
+    while True:
+        refresh()
+
+        # draw the score
+        set_font(FNT_SMALL)
+        align_text_right()
+        draw_text(get_width_adjusted(), 0, f"score: {score}", WHITE)
+        align_text_left()
+
+
+
+        if get_key_pressed("right") or get_button_pressed(JS_PADR):
+            selection_index = (selection_index - 1) % len(options)
+        if get_key_pressed("left")  or get_button_pressed(JS_PADL):
+            selection_index = (selection_index + 1) % len(options)
+        if get_key_pressed("enter") or get_button_pressed(JS_FACE0):
+            return options[selection_index]
+
+        for idx, i in enumerate(options):
+            button_coords = (get_width_adjusted() / 2 * idx + 3, 45)
+            button_outline_color = CYAN if selection_index == idx else (0, 0, 110)
+            draw_rectangle_outline(button_coords[0], button_coords[1], get_width_adjusted() / 2 - 6, 10, button_outline_color)
+            center_text_horizontal()
+            draw_text((get_width_adjusted() / 2 * idx + (get_width_adjusted() / 2) * (idx + 1)) / 2, button_coords[1] + 1 - 4, i, WHITE)
+        draw_sprite(10, 0, zebra_walking_sprites[int((time.time() - start_game_time) / 0.5) % 4])
+        draw()
+
 # Main loop
-asteroids = set(Asteroid() for _ in range(10))
-bullets = set()
-score = 0
+def init_game():
+    global asteroids, bullets, score, camera_shake
+    asteroids = set(Asteroid() for _ in range(int(level * 1.2 + 5)))
+    bullets = set()
+    score = 0
+    camera_shake = 0
+
+level = 0
 game_time = 0
 # offset = np.array([1, -1, 1])
 
 def game():
     global game_time
-
     game_time += 1
 
+    if not asteroids:
+        return score
+    
     for a in asteroids:
     #     a.update()
         a.draw_self()
@@ -323,18 +379,26 @@ def game():
 def hud():
     set_font(FNT_SMALL)
     align_text_right()
-    draw_text(W-3, -3, str(score), CYAN)
+    draw_text(W-3, -3, str(score), WHITE)
     align_text_left()
 
 def main():
     option = menu()
-    if option == "Play":
-        # Main loop
-        while True:
-            refresh()
-            game()
-            hud()
-            draw()
-    elif option == "Quit":
-        return
+
+    while True:
+        if option == "Play":
+            init_game()
+            # Main loop
+            while True:
+                refresh()
+                if (score := game()) is not None:
+                    break
+                hud()
+                draw()
+            option = end_screen(score)
+            continue
+        elif option == "Quit":
+            return
+        else:
+            raise "Invalid option given in game"
 main()
