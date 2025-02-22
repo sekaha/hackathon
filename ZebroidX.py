@@ -1,5 +1,6 @@
 import numpy as np
 from obj_handler import open_obj
+from random import randint
 from LED import *
 set_orientation(1)
 
@@ -14,6 +15,15 @@ class SpaceObject:
         self.decel = 1
         self.color = (0, 200, 0)
 
+class Asteroid(SpaceObject):
+    def __init__(self):
+        self.type = randint(4)
+        
+        if self.type == 0:
+            self.vertices, self.faces = open_obj('pyramid.obj')
+        else:
+            self.vertices, self.faces = open_obj('icosphere.obj')
+
 # Constants
 obj_ship = SpaceObject(*open_obj('ship.obj'))
 W, H = get_width_adjusted(), get_height_adjusted()
@@ -21,7 +31,7 @@ A = W/H
 FOV_V = np.pi / 4 # 45DEG VERT
 FOV_H = FOV_V*A
 SENS = 0.01
-camera = np.asarray([13, 0.5, 2, 3.3, 0])
+camera = np.asarray([0.1, 0.1, 0.1, 0.1, 0.1])
 
 
 def project_vertices(vertices, camera):
@@ -109,20 +119,25 @@ def filter_faces(z_min, normal, CameraRay, xxs, yys):
         return False        
 
 def move():
-    global camera
-    print(get_haxis(JS_RSTICK))
-    camera[3] += SENS*get_haxis(JS_LSTICK) % (2*np.pi)
-    camera[4] += np.clip(SENS*get_vaxis(JS_LSTICK), -1.57, 1.57)
-            
-    if get_button(JS_FACE0):
-        camera[0] += np.cos(camera[3]) * 0.1
-        camera[2] += np.sin(camera[3]) * 0.1
+    # Camera rotation update
+    camera[3] = (camera[3] + SENS * get_haxis(JS_LSTICK)) % (2 * np.pi)
+    camera[4] = np.clip(camera[4] + SENS * get_vaxis(JS_LSTICK), -1.57, 1.57)
 
-    if get_button(JS_FACE1):
-        camera[0] -= np.cos(camera[3]) * 0.1
-        camera[2] -= np.sin(camera[3]) * 0.1
+    # Compute the forward vector based on yaw (camera[3]) and pitch (camera[4])
+    forward = np.array([
+        np.cos(camera[4]) * np.sin(camera[3]),  # X-axis
+        np.sin(camera[4]),                      # Z-axis (up/down movement when looking up/down)
+        np.cos(camera[4]) * np.cos(camera[3])   # Y-axis
+    ])
+    MOVE_SPEED = 0.1
+    if get_button(JS_FACE0):  # Move forward
+        camera[:3] += MOVE_SPEED * forward
+
+    if get_button(JS_FACE1):  # Move backward
+        camera[:3] -= MOVE_SPEED * forward
         
-    rotate(obj_ship, 0.03, 0.02, 0.05)
+        
+    # rotate(obj_ship, 0.03, 0.02, 0.05)
 
 # Main loop
 while True:
