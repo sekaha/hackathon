@@ -14,8 +14,8 @@ class SpaceObject:
         self.scale = 1
         self.direction = [0,0,0]
         self.pos = [0,0,0]
-        self.speed = [0,0,0]
         self.angle = [0,0,0]
+        self.speed = 1
         self.accel = 1
         self.decel = 1
         self.color = (0, 200, 0)
@@ -113,11 +113,22 @@ class Asteroid(SpaceObject):
 
         self.pos = player.pos + (np.random.rand(3)*10)
         self.scale = 0.25
+        brightness = 190
+        self.color = color_hsv(randint(0,255), 255, brightness)
 
     def draw_self(self):
         self.angle[0] += 0.1
         SpaceObject.draw_self(self)
 
+class Bullet(SpaceObject):
+    def __init__(self, pos, angle, speed):
+        SpaceObject.__init__(self, *open_obj('bullet.obj'))
+        self.pos = pos
+        self.angle = angle
+        self.speed = speed
+
+    def update(self):
+        self.pos += self._get_rotation_matrix() @ np.array([0, 0, self.speed])
 
 class Player(SpaceObject):
     def __init__(self):
@@ -132,6 +143,7 @@ FOV_H = FOV_V*A
 SENS = 0.01
 camera = np.asarray([0.1, 0.1, 0.1, 0.1, 0.1])
 start_game_time = time.time()
+game_time = 0
 
 def project_vertices(vertices):
     global camera
@@ -168,10 +180,11 @@ def filter_faces(z_min, normal, CameraRay, xxs, yys):
         return False        
 
 def move():
+    global bullets
     MOVE_SPEED = 0.1
 
-    camera[3] = (camera[3] - SENS * get_haxis(JS_LSTICK)) % (2 * np.pi)
-    camera[4] = (camera[4] + SENS * get_vaxis(JS_LSTICK) )% (2 * np.pi) 
+    camera[3] = (camera[3] + SENS * get_haxis(JS_RSTICK)) % (2 * np.pi)
+    camera[4] = (camera[4] + SENS * get_vaxis(JS_RSTICK) )% (2 * np.pi) 
 
     forward = np.array([
         np.cos(camera[3]) * np.cos(camera[4]),  # X
@@ -179,17 +192,38 @@ def move():
         np.sin(camera[3]) * np.cos(camera[4])   # Z
     ])
     
-    #player.angle = [camera[3], camera[4], 0]
-    player.angle = [-camera[4], camera[3] - np.pi / 2, 0]
-    offset = camera[:3] + forward * 2
-    player.pos += (offset - player.pos) * 0.1
+    def closest_angel(current, target):
+        diff = (target - current) % (2 * math.pi)
+        if diff > math.pi:
+            diff -= 2 * math.pi
+        elif diff < -math.pi:
+            diff += 2 * math.pi
+        return current + diff
 
+    merge_am = 0.073
+    ideal_angle = [camera[4], -camera[3] + np.pi / 2, 0]
+    player.angle = [
+        a + (closest_angel(a, b) - a) * merge_am 
+        for a, b in zip(player.angle, ideal_angle)
+    ]
+
+    print()
+
+    offset = camera[:3] + forward * 2
+    vert_offset = -0.05
+    player.pos += (offset - player.pos) * merge_am
+    R = player._get_rotation_matrix()
+    player.pos += R @ np.array([0, vert_offset, -vert_offset])
 
     if get_button(JS_FACE0):
         camera[:3] += MOVE_SPEED * forward
 
     if get_button(JS_FACE1):
         camera[:3] -= MOVE_SPEED * forward
+
+    if get_button_pressed(JS_FACE2):
+        bullets.add(Bullet(np.array(player.pos) +  R @ np.array([1.5, 0, 0]),np.array(player.angle), 0.1))
+        bullets.add(Bullet(np.array(player.pos) -  R @ np.array([1.5, 0, 0]),np.array(player.angle), 0.1))
 
 def menu():
     options = ["Play", "Quit"]
@@ -224,18 +258,24 @@ def menu():
         refresh()
 
 # Main loop
-asteroids = [Asteroid() for _ in range(10)]
-offset = np.array([1, -1, 1])
+asteroids = set(Asteroid() for _ in range(10))
+bullets = set()
+game_time = 0
+# offset = np.array([1, -1, 1])
 
 def game():
+    game_time += 1
 
     for a in asteroids:
     #     a.update()
         a.draw_self()
+
+    for b in bullets:
+        b.update()
+        b.draw_self()
     # player.update()
     player.draw_self()
     move()
-
 
 def main():
     option = menu()
