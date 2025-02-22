@@ -12,10 +12,71 @@ class SpaceObject:
         self.vertices = vertices
         self.faces = faces
         self.direction = [0,0,0]
+        self.pos = [0,0,0]
         self.speed = [0,0,0]
+        self.angle = [0,0,0]
         self.accel = 1
         self.decel = 1
         self.color = (0, 200, 0)
+
+    def update(self):
+        project_vertices(self.vertices)
+
+    def rotate(self):
+        theta_x, theta_y, theta_z = self.angle
+
+        Rx = np.array([
+            [1, 0, 0],
+            [0, np.cos(theta_x), -np.sin(theta_x)],
+            [0, np.sin(theta_x), np.cos(theta_x)]
+        ])
+
+        Ry = np.array([
+            [np.cos(theta_y), 0, np.sin(theta_y)],
+            [0, 1, 0],
+            [-np.sin(theta_y), 0, np.cos(theta_y)]
+        ])
+
+        Rz = np.array([
+            [np.cos(theta_z), -np.sin(theta_z), 0],
+            [np.sin(theta_z), np.cos(theta_z), 0],
+            [0, 0, 1]
+        ])
+
+        R = Rz @ Ry @ Rx
+
+        return self.vertices[:, :3] @ R.T
+            
+    def draw_self(self):
+        vertices = self.rotate()
+        self.angle[0] += 0.01
+            
+        vet1 = obj.vertices[faces[:, 1], :3] - vertices[faces[:, 0], :3]
+        vet2 = vertices[faces[:, 2], :3] - vertices[faces[:, 0], :3]
+        normals = np.cross(vet1, vet2)
+        normals /= np.linalg.norm(normals, axis=1, keepdims=True)
+        
+        camera_rays = (vertices[faces[:, 0], :3] - camera[:3]) / vertices[faces[:, 0], 5:6]
+        
+        # Compute projected 2D vertices
+        xxs = vertices[faces, 3]
+        yys = vertices[faces, 4]
+        z_min = np.min(vertices[faces, 5], axis=1)
+        
+        # Filter valid faces
+        valid_faces = np.array([filter_faces(z_min[i], normals[i], camera_rays[i], xxs[i], yys[i]) for i in range(len(faces))])
+        valid_indices = np.where(valid_faces)[0]
+
+        for index in valid_indices:
+            triangle = faces[index]
+            proj_vertices = vertices[triangle][:, 3:]
+            
+            sorted_y = np.argsort(proj_vertices[:, 1])
+            start, middle, end = proj_vertices[sorted_y]
+
+            set_blend_mode(BM_ADD)
+            draw_polygon_outline([start[:2], middle[:2], end[:2]], self.color)
+        
 
 class Asteroid(SpaceObject):
     def __init__(self):
@@ -23,6 +84,8 @@ class Asteroid(SpaceObject):
         
         if self.type == 0:
             self.vertices, self.faces = open_obj('pyramid.obj')
+        elif self.type == 1:
+            self.vertices, self.faces = open_obj('cube.obj')
         else:
             self.vertices, self.faces = open_obj('icosphere.obj')
 
@@ -33,15 +96,12 @@ A = W/H
 FOV_V = np.pi / 4 # 45DEG VERT
 FOV_H = FOV_V*A
 SENS = 0.01
-<<<<<<< HEAD
 camera = np.asarray([0.1, 0.1, 0.1, 0.1, 0.1])
-
-=======
-camera = np.asarray([13, 0.5, 2, 3.3, 0])
 start_game_time = time.time()
->>>>>>> 6282ae42107fbaeae39145984a7172c132c41ae9
 
-def project_vertices(vertices, camera):
+def project_vertices(vertices):
+    global camera
+
     cos_hor, sin_hor = np.cos(-camera[3] + np.pi / 2), np.sin(-camera[3] + np.pi / 2)
     cos_ver, sin_ver = np.cos(-camera[4]), np.sin(-camera[4])
 
@@ -66,58 +126,6 @@ def project_vertices(vertices, camera):
     vertices[:, 4] = (-ver_fov_adjust * rotated[:, 1] / rotated[:, 2] + 0.5 * H).astype(int)
     vertices[:, 5] = rotated[:, 2] 
 
-def draw_model(obj, camera):
-    # comptue normals
-    vet1 = obj.vertices[obj.faces[:, 1], :3] - obj.vertices[obj.faces[:, 0], :3]
-    vet2 = obj.vertices[obj.faces[:, 2], :3] - obj.vertices[obj.faces[:, 0], :3]
-    normals = np.cross(vet1, vet2)
-    normals /= np.linalg.norm(normals, axis=1, keepdims=True)
-    
-    camera_rays = (obj.vertices[obj.faces[:, 0], :3] - camera[:3]) / obj.vertices[obj.faces[:, 0], 5:6]
-    
-    # Compute projected 2D vertices
-    xxs = obj.vertices[obj.faces, 3]
-    yys = obj.vertices[obj.faces, 4]
-    z_min = np.min(obj.vertices[obj.faces, 5], axis=1)
-    
-    # Filter valid faces
-    valid_faces = np.array([filter_faces(z_min[i], normals[i], camera_rays[i], xxs[i], yys[i]) for i in range(len(obj.faces))])
-    valid_indices = np.where(valid_faces)[0]
-
-    for index in valid_indices:
-        triangle = obj.faces[index]
-        proj_vertices = obj.vertices[triangle][:, 3:]
-        
-        sorted_y = np.argsort(proj_vertices[:, 1])
-        start, middle, end = proj_vertices[sorted_y]
-
-        set_blend_mode(BM_ADD)
-        draw_polygon_outline([start[:2], middle[:2], end[:2]], obj.color)
-        #reset_alpha()
-
-def rotate(obj, theta_x=0, theta_y=0, theta_z=0):
-    Rx = np.array([
-        [1, 0, 0],
-        [0, np.cos(theta_x), -np.sin(theta_x)],
-        [0, np.sin(theta_x), np.cos(theta_x)]
-    ])
-
-    Ry = np.array([
-        [np.cos(theta_y), 0, np.sin(theta_y)],
-        [0, 1, 0],
-        [-np.sin(theta_y), 0, np.cos(theta_y)]
-    ])
-
-    Rz = np.array([
-        [np.cos(theta_z), -np.sin(theta_z), 0],
-        [np.sin(theta_z), np.cos(theta_z), 0],
-        [0, 0, 1]
-    ])
-
-    R = Rz @ Ry @ Rx
-
-    obj.vertices[:, :3] = obj.vertices[:, :3] @ R.T
-
 def filter_faces(z_min, normal, CameraRay, xxs, yys):
     # only show vertices on +z (i.e. not behind us), facing the camera, check tringle bounding box
     if z_min > 0 and np.dot(normal, CameraRay) < 0 and max(xxs) >= 0 and min(xxs) < W and max(yys) >= 0 and min(yys) < H:
@@ -125,30 +133,27 @@ def filter_faces(z_min, normal, CameraRay, xxs, yys):
     else:
         return False        
 
+
 def move():
     # Camera rotation update
-    camera[3] = (camera[3] + SENS * get_haxis(JS_LSTICK)) % (2 * np.pi)
-    camera[4] = np.clip(camera[4] + SENS * get_vaxis(JS_LSTICK), -1.57, 1.57)
+    camera[3] = (camera[3] + SENS * get_haxis(JS_LSTICK)) % (2 * np.pi)  # Yaw
+    camera[4] = np.clip(camera[4] + SENS * get_vaxis(JS_LSTICK), -1.57, 1.57)  # Pitch
 
-    # Compute the forward vector based on yaw (camera[3]) and pitch (camera[4])
+    # Forward vector in full 3D space
     forward = np.array([
-        np.cos(camera[4]) * np.sin(camera[3]),  # X-axis
-        np.sin(camera[4]),                      # Z-axis (up/down movement when looking up/down)
-        np.cos(camera[4]) * np.cos(camera[3])   # Y-axis
+        np.cos(camera[3]),                 # X component
+        np.sin(camera[4]) * np.sin(camera[3]),  # Y component (vertical based on pitch)
+        np.cos(camera[4]) * np.cos(camera[3])   # Z component
     ])
+
     MOVE_SPEED = 0.1
     if get_button(JS_FACE0):  # Move forward
         camera[:3] += MOVE_SPEED * forward
-
     if get_button(JS_FACE1):  # Move backward
-        camera[:3] -= MOVE_SPEED * forward
-        
-        
+        camera[:3] -= MOVE_SPEED * forward        
     # rotate(obj_ship, 0.03, 0.02, 0.05)
 
 def menu():
-    set_orientation(1)
-
     options = ["Play", "Quit"]
 
 
@@ -186,8 +191,8 @@ def main():
         # Main loop
         while True:
             refresh()
-            project_vertices(obj_ship.vertices, camera)
-            draw_model(obj_ship, camera)
+            obj_ship.update()
+            obj_ship.draw_self()
             move()
             draw()
     elif option == "Quit":
