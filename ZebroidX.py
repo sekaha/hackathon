@@ -11,6 +11,7 @@ class SpaceObject:
     def __init__(self, vertices, faces):
         self.vertices = vertices
         self.faces = faces
+        self.scale = 1
         self.direction = [0,0,0]
         self.pos = [0,0,0]
         self.speed = [0,0,0]
@@ -20,9 +21,9 @@ class SpaceObject:
         self.color = (0, 200, 0)
 
     def update(self):
-        project_vertices(self.vertices)
-
-    def rotate(self):
+        pass
+    
+    def _get_rotation_matrix(self):
         theta_x, theta_y, theta_z = self.angle
 
         Rx = np.array([
@@ -43,54 +44,87 @@ class SpaceObject:
             [0, 0, 1]
         ])
 
-        R = Rz @ Ry @ Rx
+        return Rz @ Ry @ Rx
 
-        return self.vertices[:, :3] @ R.T
-            
+    def get_world_vertices(self):
+        scaled_verts = self.vertices[:, :3] * self.scale
+        R = self._get_rotation_matrix()
+        rotated_verts = scaled_verts @ R.T
+        world_verts = rotated_verts + self.pos
+        return world_verts
+
     def draw_self(self):
-        vertices = self.rotate()
-        self.angle[0] += 0.01
-            
-        vet1 = obj.vertices[faces[:, 1], :3] - vertices[faces[:, 0], :3]
-        vet2 = vertices[faces[:, 2], :3] - vertices[faces[:, 0], :3]
+        # self.angle[0] += 0.01
+        # self.angle[1] += 0.05
+        # self.angle[2] += 0.03
+        world_verts = self.get_world_vertices()
+        proj_verts = np.zeros((len(world_verts), 6))
+        proj_verts[:, :3] = world_verts
+
+        project_vertices(proj_verts)
+
+        vet1 = world_verts[self.faces[:, 1]] - world_verts[self.faces[:, 0]]
+        vet2 = world_verts[self.faces[:, 2]] - world_verts[self.faces[:, 0]]
         normals = np.cross(vet1, vet2)
         normals /= np.linalg.norm(normals, axis=1, keepdims=True)
-        
-        camera_rays = (vertices[faces[:, 0], :3] - camera[:3]) / vertices[faces[:, 0], 5:6]
-        
-        # Compute projected 2D vertices
-        xxs = vertices[faces, 3]
-        yys = vertices[faces, 4]
-        z_min = np.min(vertices[faces, 5], axis=1)
-        
-        # Filter valid faces
-        valid_faces = np.array([filter_faces(z_min[i], normals[i], camera_rays[i], xxs[i], yys[i]) for i in range(len(faces))])
+
+        camera_rays = world_verts[self.faces[:, 0]] - camera[:3]
+
+        xxs = proj_verts[self.faces, 3]  # Screen x
+        yys = proj_verts[self.faces, 4]  # Screen y
+        z_min = np.min(proj_verts[self.faces, 5], axis=1)  # min z in camera space
+
+        # back cull and get visibility
+        valid_faces = np.array([
+            filter_faces(
+                z_min[i],
+                normals[i],
+                camera_rays[i],
+                xxs[i],
+                yys[i]
+            ) for i in range(len(self.faces))
+        ])
         valid_indices = np.where(valid_faces)[0]
 
         for index in valid_indices:
-            triangle = faces[index]
-            proj_vertices = vertices[triangle][:, 3:]
-            
+            triangle = self.faces[index]
+            proj_vertices = proj_verts[triangle][:, 3:5]
+
             sorted_y = np.argsort(proj_vertices[:, 1])
             start, middle, end = proj_vertices[sorted_y]
 
             set_blend_mode(BM_ADD)
-            draw_polygon_outline([start[:2], middle[:2], end[:2]], self.color)
-        
+            draw_polygon_outline([start[:2], middle[:2], end[:2]], self.color)        
 
 class Asteroid(SpaceObject):
+    global player
+
     def __init__(self):
-        self.type = randint(4)
+        self.type = randint(0,4)
         
         if self.type == 0:
-            self.vertices, self.faces = open_obj('pyramid.obj')
+            obj = open_obj('pyramid.obj')
         elif self.type == 1:
-            self.vertices, self.faces = open_obj('cube.obj')
+            obj = open_obj('cube.obj')
         else:
-            self.vertices, self.faces = open_obj('icosphere.obj')
+            obj = open_obj('icosphere.obj')
+
+        SpaceObject.__init__(self, *obj)
+
+        self.pos = player.pos + (np.random.rand(3)*10)
+        self.scale = 0.25
+
+    def draw_self(self):
+        self.angle[0] += 0.1
+        SpaceObject.draw_self(self)
+
+
+class Player(SpaceObject):
+    def __init__(self):
+        SpaceObject.__init__(self, *open_obj('ship.obj'))
 
 # Constants
-obj_ship = SpaceObject(*open_obj('ship.obj'))
+player = Player()
 W, H = get_width_adjusted(), get_height_adjusted()
 A = W/H
 FOV_V = np.pi / 4 # 45DEG VERT
@@ -133,29 +167,32 @@ def filter_faces(z_min, normal, CameraRay, xxs, yys):
     else:
         return False        
 
-
 def move():
-    # Camera rotation update
-    camera[3] = (camera[3] + SENS * get_haxis(JS_LSTICK)) % (2 * np.pi)  # Yaw
-    camera[4] = np.clip(camera[4] + SENS * get_vaxis(JS_LSTICK), -1.57, 1.57)  # Pitch
-
-    # Forward vector in full 3D space
-    forward = np.array([
-        np.cos(camera[3]),                 # X component
-        np.sin(camera[4]) * np.sin(camera[3]),  # Y component (vertical based on pitch)
-        np.cos(camera[4]) * np.cos(camera[3])   # Z component
-    ])
-
     MOVE_SPEED = 0.1
-    if get_button(JS_FACE0):  # Move forward
+
+    camera[3] = (camera[3] - SENS * get_haxis(JS_LSTICK)) % (2 * np.pi)
+    camera[4] = (camera[4] + SENS * get_vaxis(JS_LSTICK) )% (2 * np.pi) 
+
+    forward = np.array([
+        np.cos(camera[3]) * np.cos(camera[4]),  # X
+        -np.sin(camera[4]),                     # Y (positive when looking up)
+        np.sin(camera[3]) * np.cos(camera[4])   # Z
+    ])
+    
+    #player.angle = [camera[3], camera[4], 0]
+    player.angle = [-camera[4], camera[3] - np.pi / 2, 0]
+    offset = camera[:3] + forward * 2
+    player.pos += (offset - player.pos) * 0.1
+
+
+    if get_button(JS_FACE0):
         camera[:3] += MOVE_SPEED * forward
-    if get_button(JS_FACE1):  # Move backward
-        camera[:3] -= MOVE_SPEED * forward        
-    # rotate(obj_ship, 0.03, 0.02, 0.05)
+
+    if get_button(JS_FACE1):
+        camera[:3] -= MOVE_SPEED * forward
 
 def menu():
     options = ["Play", "Quit"]
-
 
     selection_index = 0
     while True:
@@ -167,14 +204,15 @@ def menu():
         draw_text(get_width_adjusted() / 2, 0, title, WHITE)
 
 
-        if get_key_pressed("down"):
+        if get_key_pressed("down") or get_button_pressed(JS_PADD):
             selection_index = (selection_index - 1) % len(options)
-        if get_key_pressed("up"):
+        if get_key_pressed("up")  or get_button_pressed(JS_PADU):
             selection_index = (selection_index + 1) % len(options)
-        if get_key_pressed("enter"):
+        if get_key_pressed("enter") or get_button_pressed(JS_FACE0):
             return options[selection_index]
 
         set_font(FNT_SMALL)
+
         for idx, i in enumerate(options):
             button_coords = (get_width_adjusted() / 4, 30 + idx * 15)
             button_outline_color = CYAN if selection_index == idx else GREY
@@ -185,15 +223,27 @@ def menu():
         draw()
         refresh()
 
+# Main loop
+asteroids = [Asteroid() for _ in range(10)]
+offset = np.array([1, -1, 1])
+
+def game():
+
+    for a in asteroids:
+    #     a.update()
+        a.draw_self()
+    # player.update()
+    player.draw_self()
+    move()
+
+
 def main():
     option = menu()
     if option == "Play":
         # Main loop
         while True:
             refresh()
-            obj_ship.update()
-            obj_ship.draw_self()
-            move()
+            game()
             draw()
     elif option == "Quit":
         return
