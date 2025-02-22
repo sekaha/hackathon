@@ -97,6 +97,65 @@ class SpaceObject:
             set_blend_mode(BM_ADD)
             draw_polygon_outline([start[:2], middle[:2], end[:2]], self.color)        
 
+    def update(self):
+        project_vertices(self.vertices)
+
+    def rotate(self):
+        theta_x, theta_y, theta_z = self.angle
+
+        Rx = np.array([
+            [1, 0, 0],
+            [0, np.cos(theta_x), -np.sin(theta_x)],
+            [0, np.sin(theta_x), np.cos(theta_x)]
+        ])
+
+        Ry = np.array([
+            [np.cos(theta_y), 0, np.sin(theta_y)],
+            [0, 1, 0],
+            [-np.sin(theta_y), 0, np.cos(theta_y)]
+        ])
+
+        Rz = np.array([
+            [np.cos(theta_z), -np.sin(theta_z), 0],
+            [np.sin(theta_z), np.cos(theta_z), 0],
+            [0, 0, 1]
+        ])
+
+        R = Rz @ Ry @ Rx
+
+        return self.vertices[:, :3] @ R.T
+            
+    def draw_self(self):
+        vertices = self.rotate()
+        self.angle[0] += 0.01
+            
+        vet1 = obj.vertices[faces[:, 1], :3] - vertices[faces[:, 0], :3]
+        vet2 = vertices[faces[:, 2], :3] - vertices[faces[:, 0], :3]
+        normals = np.cross(vet1, vet2)
+        normals /= np.linalg.norm(normals, axis=1, keepdims=True)
+        
+        camera_rays = (vertices[faces[:, 0], :3] - camera[:3]) / vertices[faces[:, 0], 5:6]
+        
+        # Compute projected 2D vertices
+        xxs = vertices[faces, 3]
+        yys = vertices[faces, 4]
+        z_min = np.min(vertices[faces, 5], axis=1)
+        
+        # Filter valid faces
+        valid_faces = np.array([filter_faces(z_min[i], normals[i], camera_rays[i], xxs[i], yys[i]) for i in range(len(faces))])
+        valid_indices = np.where(valid_faces)[0]
+
+        for index in valid_indices:
+            triangle = faces[index]
+            proj_vertices = vertices[triangle][:, 3:]
+            
+            sorted_y = np.argsort(proj_vertices[:, 1])
+            start, middle, end = proj_vertices[sorted_y]
+
+            set_blend_mode(BM_ADD)
+            draw_polygon_outline([start[:2], middle[:2], end[:2]], self.color)
+        
+
 class Asteroid(SpaceObject):
     global player
 
@@ -185,6 +244,8 @@ game_time = 0
 def project_vertices(vertices):
     global camera
 
+def project_vertices(vertices):
+    global camera
     cos_hor, sin_hor = np.cos(-camera[3] + np.pi / 2), np.sin(-camera[3] + np.pi / 2)
     cos_ver, sin_ver = np.cos(-camera[4]), np.sin(-camera[4])
 
@@ -215,6 +276,7 @@ def filter_faces(z_min, normal, CameraRay, xxs, yys):
         return True
     else:
         return False        
+
 
 def move():
     global bullets, camera_shake, camera
