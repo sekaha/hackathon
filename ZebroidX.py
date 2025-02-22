@@ -215,7 +215,7 @@ def menu():
 
         for idx, i in enumerate(options):
             button_coords = (get_width_adjusted() / 4, 30 + idx * 15)
-            button_outline_color = CYAN if selection_index == idx else GREY
+            button_outline_color = CYAN if selection_index == idx else (0, 0, 110)
             draw_rectangle_outline(button_coords[0], button_coords[1], get_width_adjusted() / 2, 10, button_outline_color)
             center_text_horizontal()
             draw_text(get_width_adjusted() / 2, button_coords[1] + 1 - 4, i, WHITE)
