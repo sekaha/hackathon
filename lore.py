@@ -15,7 +15,7 @@ dic = pyphen.Pyphen(lang='en_US')
 # Displays the lore of the game; returns the line position of the last line
 def lore(delta):
 	textcolor = (242, 225, 111)
-	offset = -(delta / 15)
+	offset = -(-50 + delta / 15)
 	refresh(color=(19, 35, 74))
 	# Grab lore from file and store it in a string
 	file = open("lore.txt", "r")
