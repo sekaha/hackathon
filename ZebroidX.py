@@ -123,6 +123,8 @@ class Player(SpaceObject):
     def __init__(self):
         SpaceObject.__init__(self, *open_obj('ship.obj'))
 
+score = 0
+
 # Constants
 player = Player()
 W, H = get_width_adjusted(), get_height_adjusted()
@@ -228,6 +230,13 @@ asteroids = [Asteroid() for _ in range(10)]
 offset = np.array([1, -1, 1])
 
 def game():
+    global score
+
+    # draw the score
+    set_font(FNT_SMALL)
+    align_text_right()
+    draw_text(get_width_adjusted(), 0, f"score: {score}", WHITE)
+    align_text_left()
 
     for a in asteroids:
     #     a.update()
