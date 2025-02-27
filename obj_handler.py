@@ -16,7 +16,8 @@ def open_obj(file_name):
 
             if tokens[0] == "f":
                 faces.append([t.split('/')[0] for t in tokens[1:4]])
-
+                
+                # add a second triangle
                 if len(tokens) > 4:
                     faces.append([t.split('/')[0] for t in (tokens[1], tokens[3], tokens[4])])
 
