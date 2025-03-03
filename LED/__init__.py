@@ -264,7 +264,7 @@ class Sprite:
         return self.angle
 
     def scale(self, scale):
-        self.img_scale = img_scale
+        self.img_scale = scale
 
     def get_scale(self):
         return self.img_scale
@@ -747,8 +747,8 @@ JS_FACE2 = 2
 JS_FACE3 = 3
 JS_L1 = 4
 JS_R1 = 5
-JS_L2 = 6
-JS_R2 = 7
+JS_L2 = 6 # axis
+JS_R2 = 7 # axis
 JS_SELECT = 8
 JS_START = 9
 JS_LSTICK = 11
@@ -2291,7 +2291,6 @@ def get_haxis(joystick):
     else:
         return 0
 
-
 def get_vaxis(joystick):
     axis_val = 0
 
@@ -2310,6 +2309,21 @@ def get_vaxis(joystick):
     else:
         return 0
 
+
+def get_trigger(trigger):
+    val = 0
+
+    if len(_joysticks) > _joystick_environment:
+        if trigger == JS_L2:
+            val = _joysticks[_joystick_environment].get_axis(4)
+        elif trigger == JS_R2:
+            val = _joysticks[_joystick_environment].get_axis(5)
+        else:
+            print("joystick does not exist, can't receive axis")
+
+        return val
+    else:
+        return 0
 
 # drawing the LED grid and window
 def _update_environment():
