@@ -9,6 +9,7 @@ import time
 from math import sin
 
 set_orientation(1)
+
 W, H = get_width_adjusted(), get_height_adjusted()
 start_game_time = time.time()
 cnv_indicator = create_canvas(W, H)
@@ -51,7 +52,7 @@ class Crosshair(Point3D):
         if 0 < lead_z and 0 <= lead_x < W and 0 <= lead_y < H:
             # if 8 < z:
             dist = ((lead_x - cross_x) ** 2 + (lead_y - cross_y) ** 2) ** 0.5
-            brightness = min(150, 150 * (dist / 4))
+            brightness = min(150, max(0, 150 * (dist / 4)-20))
             draw_circle_outline(lead_x, lead_y, 1, color_hsv(140, 255, brightness))
 
 
@@ -110,6 +111,7 @@ def hud():
     if np.linalg.norm(player.gravity_velocity) > player.max_grav_spd * 0.4:
         draw_text(W//2, H//2, "Gravity Warning", color_hsv(0, 255, sin(game.game_time / 33)*126 + 126))
 
+    reset_text()
 
 def menu():
     options = ["Play", "Quit"]

@@ -4,6 +4,7 @@ from entities import Point3D
 from random import randint
 from utils.graphics import project_point
 from src.camera import camera
+from utils.math_utils import get_random_spherical
 
 set_orientation(1)
 W, H = get_size_adjusted()
@@ -18,18 +19,7 @@ class Star(Point3D):
         #     self.is_planet = True
         #     self.color = color_hsv(randint(0, 255), 255, 75)
         #     self.rad = randint(2, randint(2, 5))
-
-        # https://en.wikipedia.org/wiki/Spherical_coordinate_system
-        theta = np.random.uniform(0, 2*np.pi) # azimuthal
-        phi = np.acos(np.random.uniform(-1, 1))
-
-        self.pos = np.zeros(3)
-
-        self.pos[0] = np.cos(theta) * np.sin(phi)
-        self.pos[1] = np.sin(theta) * np.sin(phi)
-        self.pos[2] = np.cos(phi)
-
-        self.pos *= 1000000
+        self.pos = get_random_spherical(1000000)
 
     def draw_self(self):
         x, y, z = project_point(self.pos, camera.pos, camera.rotation_matrix, camera.shake) # , W, H, FOV_H, FOV_V

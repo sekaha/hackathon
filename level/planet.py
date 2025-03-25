@@ -8,6 +8,7 @@ from player import player
 from utils.obj_handler import open_obj
 from entities import Particle
 from shard import Shard
+from utils.math_utils import get_random_spherical
 
 obj_planet_very_low_lod = open_obj("assets/dodecahedron.obj")
 obj_planet_low_lod = open_obj("assets/planet.obj")
@@ -15,6 +16,7 @@ obj_planet_high_lod = open_obj("assets/planet_high_lod.obj")
 obj_planet_medium_lod = open_obj("assets/planet_medium_lod.obj")
 obj_ring = open_obj("assets/planet_ring.obj")
 
+# bones = 0
 
 class Ring(SpaceObject):
     def __init__(self):
@@ -27,17 +29,13 @@ class Planet(SpaceObject):
         SpaceObject.__init__(self, *obj_planet_low_lod)
 
         # Spherical coordinate system random placement
-        theta = np.random.uniform(0, 2 * np.pi)  # azimuthal
-        phi = np.acos(np.random.uniform(-1, 1))
-
-        self.pos = np.zeros(3)
-        self.pos[0] = np.cos(theta) * np.sin(phi)
-        self.pos[1] = np.sin(theta) * np.sin(phi)
-        self.pos[2] = np.cos(phi)
-        self.scale = randint(125, randint(600, 900))
-        self.pos *= randint(
+        size = randint(
             2000, randint(3000, randint(4000, randint(5000, randint(6000, 70000))))
         )
+
+        self.pos = get_random_spherical(size)
+        self.scale = randint(125, randint(600, 900))
+        
         self.angle = Quaternion.from_euler(*np.random.uniform(0, 2 * np.pi, 3))
         brightness = 50
         saturation = 230
@@ -82,6 +80,7 @@ class Planet(SpaceObject):
         self.grav_factor = 100
 
     def draw_self(self):
+        global bones
         SpaceObject.draw_self(self, True, False, False)
         self.angle = self.spin * self.angle
 
@@ -108,7 +107,8 @@ class Planet(SpaceObject):
             camera.add_shake(round(gravity / 75, 3))
 
         if dist < self.danger_dist:
-            player.hp -= 3 # * 0
+            # bones += randint(0, randint(1, randint(2, randint(3, randint(4, 5))))) + 1
+            player.hp -= 3
             camera.add_shake(0.03)
             
             for _ in range(10):
@@ -118,3 +118,6 @@ class Planet(SpaceObject):
             shard.scale = player.scale * np.random.uniform(0.25, 1.5)
 
             player.gravity_velocity *= -1
+        
+        # set_font(FNT_SMALL)
+        # draw_text(2,-2,f"Bones Broken: {bones}", GREEN)

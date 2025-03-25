@@ -7,6 +7,7 @@ from player import player
 from src.game import game
 from utils.obj_handler import open_obj
 from shard import Shard
+from utils.math_utils import get_random_spherical
 
 obj_tetrahedron = open_obj("assets/tetrahedron.obj")
 tetrahedron_center = np.mean(obj_tetrahedron[0], axis=0)
@@ -30,9 +31,23 @@ octahedron_radius = np.mean(
     np.linalg.norm(obj_octahedron[0] - octahedron_center, axis=1)
 )
 
+triangle_count = {
+    0: 4,
+    1: 12, # square faces have 2 triangles, 6 faces
+    2: 8,
+    #3: 12,
+    3: 20,
+}
+
+triangle_size = {
+    0: 1,
+    1: 0.65,
+    2: 0.5,
+    3: 0.35,
+}
 
 class Asteroid(SpaceObject):
-    def __init__(self, type=None):
+    def __init__(self, type=None, pos=None, dir=None):
         if type == None:
             self.type = randint(1, 3)
             # self.type = 3
@@ -41,21 +56,6 @@ class Asteroid(SpaceObject):
 
         self.leeway = 0.9
         self.bullet_pad = 1.414
-
-        self.face_count = {
-            0: 4,
-            1: 6,
-            2: 8,
-            #3: 12,
-            3: 20,
-        }
-
-        self.shard_size = {
-            0: 1,
-            1: 0.65,
-            2: 0.5,
-            3: 0.35,
-        }
 
         if self.type == 0:
             obj = obj_tetrahedron
@@ -76,8 +76,18 @@ class Asteroid(SpaceObject):
 
         SpaceObject.__init__(self, *obj)
 
-        self.pos = player.pos + (np.random.rand(3) * 200)
-        self.scale = np.random.uniform(18, 48)  # np.random.uniform(3, 12)
+
+        if not pos:
+            self.pos = player.pos + get_random_spherical(randint(3000,5000))
+        else:
+            self.pos = pos
+
+        if not dir:
+            self.dir = (player.pos-self.pos)/np.linalg.norm((player.pos-self.pos)) + get_random_spherical(min(gauss(0, 0.05), 0.75))
+        else:
+            self.dir = dir
+
+        self.scale = np.random.uniform(20, 60)  # np.random.uniform(3, 12)
         self.max_brightness = 130
         self.brightness = self.max_brightness
         self.collision_radius *= self.scale
@@ -88,17 +98,19 @@ class Asteroid(SpaceObject):
         axis = np.random.uniform(-1, 1, 3)
         axis /= np.linalg.norm(axis)  # Normalize axis
         angle = np.random.uniform(-0.075, 0.075)  # Small rotation per update
+        self.max_speed = np.random.uniform(player.slow_spd, player.slow_spd * 2)
+
         self.rot = Quaternion.from_axis_angle(axis, angle)
-        self.dir = Quaternion(*np.random.uniform(-1, 1, 4)).normalize()
         self.speed = np.random.uniform(
             0, np.random.uniform(player.slow_spd / 2, 
-            np.random.uniform(player.slow_spd, player.slow_spd * 2))
+            self.max_speed)
         )
+
         self.color = color_hsv(self.hue, 200, self.brightness)
 
     def create_children(self):
-        child1, child2 = None, None
-        
+        shard_count = triangle_count[self.type]
+
         # based on volume of sphere to radius of two spheres with the same total volume
         # half_radius = (1/2) ** (1/3)
 
@@ -108,35 +120,53 @@ class Asteroid(SpaceObject):
             child1.pos = self.pos + np.random.uniform(0, self.scale, 3)
             child1.hue = (self.hue + gauss(0, 30)) % 255
             child1.brightness = 255
-            game.asteroids.add(child1)
+            child1.speed = min(self.speed * np.random.uniform(1.5, 3), self.max_speed)
+            child1.dir = get_random_spherical(1)
 
+            game.asteroids.add(child1)
+            shard_count -= triangle_count[child1.type]
+
+            # add a second shape most the time and disregard shard budget
             if randint(0,2) != 0: 
                 child2 = Asteroid(randint(0, self.type - 1))
                 child2.pos = self.pos + np.random.uniform(0, self.scale, 3)
                 child2.hue = (self.hue + gauss(0, 30)) % 255
                 child2.scale = self.scale * 0.5
                 child2.brightness = 255
+                child2.speed = min(self.speed * np.random.uniform(1.5, 3), self.max_speed)
+                child2.dir = get_random_spherical(1)            
+                
                 game.asteroids.add(child2)
+                shard_count -= triangle_count[child2.type]
 
+            # if there's spare shards, go ahead and add a new shape some of the time
+            if shard_count > 4 and randint(0,3) == 0:
+                type = randint(0, self.type - 1)
 
-        shard_count = self.face_count[self.type]
-        
-        if child1:
-            shard_count -= self.face_count[child1.type]
-        
-        if child2:
-            shard_count -= self.face_count[child2.type]
-        
-        while shard_count:
-            if 2 <= shard_count and self.type == 1 and randint(0,1) == 1:
+                while shard_count < triangle_count[type]:
+                    type -= 1
+                
+                child3 = Asteroid(type)
+                child3.pos = self.pos + np.random.uniform(0, self.scale, 3)
+                child3.hue = (self.hue + gauss(0, 30)) % 255
+                child3.scale = self.scale * 0.5
+                child3.brightness = 255
+                child3.dir = get_random_spherical(1)
+                child3.speed = min(self.speed * np.random.uniform(1.5, 3), self.max_speed)
+                
+                game.asteroids.add(child3)
+                shard_count -= triangle_count[child3.type]
+
+        while shard_count > 0:
+            if 2 <= shard_count and self.type == 1 and randint(0,1) == 0:
                 shard = Shard(pos=np.array(self.pos), hue=self.hue, square=True)
                 shard_count -= 2
                 shard.scale = self.scale
             else:
                 shard = Shard(pos=np.array(self.pos), hue=self.hue)
                 shard_count -= 1
-                shard.scale = self.scale * self.shard_size[self.type]
-            
+                shard.scale = self.scale * triangle_size[self.type]
+
 
     def draw_self(self):
         if self.brightness > self.max_brightness + 1:
@@ -149,7 +179,7 @@ class Asteroid(SpaceObject):
         #     if self.scale / dist < 1:
         #         game.to_remove.add(self)
 
-        self.pos += self.dir.get_vector() * self.speed
+        self.pos += self.dir * self.speed
         self.angle *= self.rot
 
         super().draw_self(self, check_remove=True)

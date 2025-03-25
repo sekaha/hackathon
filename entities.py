@@ -9,6 +9,7 @@ from utils.graphics import (
 from src.camera import camera
 from src.game import game
 import numpy as np
+from utils.math_utils import get_random_spherical
 
 set_orientation(1)
 W, H = get_width_adjusted(), get_height_adjusted()
@@ -16,7 +17,7 @@ W, H = get_width_adjusted(), get_height_adjusted()
 
 class SpaceObject:
     def __init__(self, vertices, faces, cull=True):
-        self.vertices = vertices
+        self.vertices = np.ascontiguousarray(vertices)
         self.faces = faces
         self.scale = 1
         self.pos = np.array([0, 0, 0], dtype=np.float64)
@@ -65,26 +66,28 @@ class SpaceObject:
 
         if check_remove and (
             self.max_x - self.min_x < despawn_threshold
-            and self.max_x - self.min_x < despawn_threshold
+            and self.max_y - self.min_y < despawn_threshold
         ):
             game.to_remove.add(self)
 
+        faces = self.faces  # store to avoid redundant attribute access
+        face_zs = proj_verts[faces, 5]  # extract all depth values in one  (does a view instead of a copy)
         valid_faces = filter_visible_faces(
-            np.min(proj_verts[self.faces, 5], axis=1), normals, camera_rays, xxs, yys, self.cull, len(self.faces)
+            np.min(face_zs, axis=1), normals, camera_rays, xxs, yys, self.cull, len(faces)
         )
 
         valid_indices = np.where(valid_faces)[0]
 
         drawn_edges = set()
 
-        if fill:
-            for index in valid_indices:
-                triangle = self.faces[index]
-                proj_vertices = proj_verts[triangle][:, 3:5]  # [x_screen, y_screen]
-                set_blend_mode(BM_NORMAL)
-                sorted_y = np.argsort(proj_vertices[:, 1])
-                start, middle, end = proj_vertices[sorted_y]
-                draw_polygon([start[:2], middle[:2], end[:2]], BLACK)
+        # if fill:
+        #     for index in valid_indices:
+        #         triangle = self.faces[index]
+        #         proj_vertices = proj_verts[triangle][:, 3:5]  # [x_screen, y_screen]
+        #         set_blend_mode(BM_NORMAL)
+        #         sorted_y = np.argsort(proj_vertices[:, 1])
+        #         start, middle, end = proj_vertices[sorted_y]
+        #         draw_polygon([start[:2], middle[:2], end[:2]], BLACK)
 
         if blend:
             set_blend_mode(BM_ADD)
@@ -97,17 +100,21 @@ class SpaceObject:
 
             if prevent_duplicates:
                 edges = [
-                    (triangle[0], triangle[1]),
-                    (triangle[1], triangle[2]),
-                    (triangle[2], triangle[0]),
+                    (min(triangle[0], triangle[1]), max(triangle[0], triangle[1])),
+                    (min(triangle[1], triangle[2]), max(triangle[1], triangle[2])),
+                    (min(triangle[2], triangle[0]), max(triangle[2], triangle[0])),
                 ]
+
                 for edge in edges:
-                    sorted_edge = frozenset(edge)
-                    if sorted_edge not in drawn_edges:
-                        drawn_edges.add(sorted_edge)
-                        x1, y1 = proj_vertices[edge[0] == triangle][0]
-                        x2, y2 = proj_vertices[edge[1] == triangle][0]
+                    if edge not in drawn_edges:
+                        drawn_edges.add(edge)
+
+                        v0, v1 = tuple(edge)
+                        x1, y1 = proj_vertices[np.where(triangle == v0)][0]
+                        x2, y2 = proj_vertices[np.where(triangle == v1)][0]
+
                         draw_line(x1, y1, x2, y2, self.color)
+
             else:
                 sorted_y = np.argsort(proj_vertices[:, 1])
                 start, middle, end = proj_vertices[sorted_y]
@@ -127,13 +134,7 @@ class Particle(Point3D):
         self.decel = decel
 
         if dir is None:
-            theta = np.random.uniform(0, 2 * np.pi)  # azimuthal
-            phi = np.acos(np.random.uniform(-1, 1))
-
-            self.dir = np.zeros(3)
-            self.dir[0] = np.cos(theta) * np.sin(phi)
-            self.dir[1] = np.sin(theta) * np.sin(phi)
-            self.dir[2] = np.cos(phi)
+            self.dir = get_random_spherical(1)
         else:
             self.dir = dir
 

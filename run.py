@@ -4,6 +4,11 @@ from level.level import level
 from src.gui import hud, end_screen
 from src.lore import display_lore
 from src.game import game
+import cProfile
+
+from OpenGL.GL import *
+from OpenGL.GLU import *
+
 
 def update():
     game.update()
@@ -17,6 +22,8 @@ def update():
 
     draw_entities()
     update_entities()
+    level.update()
+
     return None
 
 def draw_entities():
@@ -48,6 +55,7 @@ def main():
 
     # if level.level_number == 0:
     #     display_lore()
+    # expertimental_use_gpu()
 
     while True:
         if option == "Play":
@@ -57,12 +65,12 @@ def main():
 
             while True:
                 refresh()
-                
+
                 score = update()
+                #expertimental_use_cpu()
 
                 if score is not None:
                     break
-                
                 hud()
                 draw()
             
@@ -73,4 +81,5 @@ def main():
             raise ValueError("Invalid option given in game")
 
 if __name__ == "__main__":
-    main()
+    cProfile.run("main()", "profile_results.prof")
+

@@ -3,6 +3,7 @@ from level.planet import Planet
 from level.star import Star
 from random import randint, gauss
 from src.game import game 
+from level.spawn_system import SpawnSystem
 import numpy as np
 
 class Level:
@@ -10,9 +11,13 @@ class Level:
         self.level_number = 0
         self.planets = set()
         self.stars = set()
+        self.spawner = SpawnSystem()
+
+    def update(self):
+        self.spawner.update()
 
     def generate(self):
-        game.asteroids = set(Asteroid() for _ in range(15)) #range(int(level * 1.2 + 10)))
+        # game.asteroids = set(Asteroid() for _ in range(15)) #range(int(level * 1.2 + 10)))
         self.planets = set()
         
         self.stars = set(Star() for _ in range(100))

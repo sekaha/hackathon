@@ -22,4 +22,5 @@ def open_obj(file_name):
                 if len(tokens) > 4:
                     faces.append([t.split('/')[0] for t in (tokens[1], tokens[3], tokens[4])])
 
-    return np.array(vertices).astype(float), (np.array(faces).astype(int)-1)
+    return np.ascontiguousarray(np.array(vertices, dtype=np.float64)), np.ascontiguousarray(np.array(faces, dtype=np.int32)) - 1
+

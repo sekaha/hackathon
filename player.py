@@ -68,7 +68,7 @@ class Player(SpaceObject):
             self.max_spd += (self.slow_spd - self.max_spd) * 0.1
 
         max_spd = self.max_spd + min(
-            abs(roll_input * 2) * self.max_spd, self.max_spd * 0.25
+            abs(roll_input * 3) * self.max_spd, self.max_spd * 0.33
         )
 
         # Create quaternions for local rotations using the current camera orientation.
@@ -97,7 +97,13 @@ class Player(SpaceObject):
             self.gravity_velocity = (
                 self.gravity_velocity / grav_speed
             ) * self.max_grav_spd
+    
 
+        # if grav_speed > 0:
+        #     rotation_quat = Quaternion.from_axis_angle(np.cross(up, self.gravity_velocity / grav_speed), 
+        #                                         np.arccos(np.dot(up, self.gravity_velocity / grav_speed)))
+        #     camera.angle = camera.angle.slerp(rotation_quat.inverse(), 0.01*(grav_speed/self.max_grav_spd))
+        
         small_offset = 1
         offset = np.copy(camera.pos)
         offset += forward * max(0, np.dot(self.velocity / self.mod, forward) * 10)
@@ -108,6 +114,7 @@ class Player(SpaceObject):
         player.pos += (offset - player.pos) * (
             1 - exp(-self.mod * 2 * game.smooth_delta)
         )
+
         player.angle = player.angle.slerp(camera.angle, 0.1)
 
         # Joystick input for movement
@@ -138,6 +145,7 @@ class Player(SpaceObject):
                         np.array(self.pos), self.angle, self.bullet_spd, self.velocity
                     )
                 )
+
                 self.velocity -= forward * 0.1
                 self.reload_t = self.reload_spd
         else:
