@@ -115,9 +115,6 @@ import numpy as np
 import pygame
 from pygame._sdl2.video import Window
 from pygame.locals import *
-from OpenGL.GL import *
-from OpenGL.GLUT import *
-from OpenGL.GLU import *
 import os
 import time
 import math
@@ -342,22 +339,7 @@ class Canvas:
         self.width = self.surface.get_width()
         self.height = self.surface.get_height()
         # self.surface_array = pygame.surfarray.pixels3d(self.surface)
-
-        self._gpu_texture = None
-
-        # if _use_gpu:
-        #     self._make_gpu_texture()
-
-    def _make_gpu_texture(self):
-        width, height = self.surface.get_size()
-        texture_data = pygame.image.tostring(self.surface, 'RGBA', True)
-        self._gpu_texture = glGenTextures(1)
-        glBindTexture(GL_TEXTURE_2D, self._gpu_texture)
-        
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-    
+            
     def export(self, file_name):
         image = Image.fromarray(np.uint8(self.get_ndarray()))
         image.save(file_name)
@@ -702,7 +684,6 @@ _current_canvas = _GAME_SCREEN
 _canvas_stack = [_internal_canvas]
 _alpha = 255
 _background_color = (0, 0, 0)
-_use_gpu = False
 
 # blend modes
 BM_NORMAL = 0
@@ -978,98 +959,45 @@ def _update_delta():
 
 ############### DRAWING FUNCTIONS ###############
 def draw_line(x1, y1, x2, y2, color):
-    if _use_gpu:
-        glBegin(GL_LINES)
-        glColor3f(color[0]/255, color[1]/255, color[2]/255)
-        glVertex2f(x1, y1)
-        glVertex2f(x2, y2)
-        glEnd()
-    else:
-        pygame.draw.line(_internal_canvas.surface, color, (x1, y1), (x2, y2), 1)
-        _update_blend_canvas()
+    pygame.draw.line(_internal_canvas.surface, color, (x1, y1), (x2, y2), 1)
+    _update_blend_canvas()
 
 def draw_line_width(x1, y1, x2, y2, color, thickness):
-    if _use_gpu:
-        glLineWidth(math.floor(thickness))
-        glBegin(GL_LINES)
-        glColor3f(color[0]/255, color[1]/255, color[2]/255)
-        glVertex2f(x1, y1)
-        glVertex2f(x2, y2)
-        glEnd()
-        glLineWidth(1.0)  # Reset to default
-    else:
-        pygame.draw.line(
-            _internal_canvas.surface, color, (x1, y1), (x2, y2), math.floor(thickness)
-        )
-        _update_blend_canvas()
+    pygame.draw.line(
+        _internal_canvas.surface, color, (x1, y1), (x2, y2), math.floor(thickness)
+    )
+    _update_blend_canvas()
 
 def draw_rectangle(x, y, w, h, color):
-    if _use_gpu:
-        glBegin(GL_QUADS)
-        glColor3f(color[0]/255, color[1]/255, color[2]/255)
-        glVertex2f(x, y)
-        glVertex2f(x + w, y)
-        glVertex2f(x + w, y + h)
-        glVertex2f(x, y + h)
-        glEnd()
-    else:
-        pygame.draw.rect(_internal_canvas.surface, (color), pygame.Rect(x, y, w, h))
-        _update_blend_canvas()
+    pygame.draw.rect(_internal_canvas.surface, (color), pygame.Rect(x, y, w, h))
+    _update_blend_canvas()
 
 def draw_rectangle_outline(x, y, w, h, color, thickness=1):
-    if _use_gpu:
-        glLineWidth(math.floor(thickness))
-        glBegin(GL_LINE_LOOP)
-        glColor3f(color[0]/255, color[1]/255, color[2]/255)
-        glVertex2f(x, y)
-        glVertex2f(x + w, y)
-        glVertex2f(x + w, y + h)
-        glVertex2f(x, y + h)
-        glEnd()
-        glLineWidth(1.0)  # Reset to default
-    else:
-        pygame.draw.rect(
-            _internal_canvas.surface,
-            (color),
-            pygame.Rect(x, y, w, h),
-            math.floor(thickness),
-        )
-        _update_blend_canvas()
+    pygame.draw.rect(
+        _internal_canvas.surface,
+        (color),
+        pygame.Rect(x, y, w, h),
+        math.floor(thickness),
+    )
+    _update_blend_canvas()
 
 def draw_circle(x, y, r, color):
     r = abs(r)
+
     if r <= 1:
         draw_pixel(x, y, color)
-    elif _use_gpu:
-        glBegin(GL_TRIANGLE_FAN)
-        glColor3f(color[0]/255, color[1]/255, color[2]/255)
-        glVertex2f(x, y)  # Center
-        segments = max(16, int(r * math.pi))  # Adjust detail based on radius
-        for i in range(segments + 1):
-            angle = 2.0 * math.pi * i / segments
-            glVertex2f(x + r * math.cos(angle), y + r * math.sin(angle))
-        glEnd()
     else:
         pygame.draw.circle(_internal_canvas.surface, color, (x, y), r)
         _update_blend_canvas()
 
 def draw_circle_outline(x, y, r, color, thickness=1):
     r = abs(r)
-    if _use_gpu:
-        glLineWidth(math.floor(thickness))
-        glBegin(GL_LINE_LOOP)
-        glColor3f(color[0]/255, color[1]/255, color[2]/255)
-        segments = max(16, int(r * math.pi))  # Adjust detail based on radius
-        for i in range(segments):
-            angle = 2.0 * math.pi * i / segments
-            glVertex2f(x + r * math.cos(angle), y + r * math.sin(angle))
-        glEnd()
-        glLineWidth(1.0)  # Reset to default
-    else:
-        pygame.draw.circle(
-            _internal_canvas.surface, color, (x, y), r, math.floor(thickness)
-        )
-        _update_blend_canvas()
+
+    pygame.draw.circle(
+        _internal_canvas.surface, color, (x, y), r, math.floor(thickness)
+    )
+
+    _update_blend_canvas()
 
 def draw_polygon(points, color):
     if len(points) == 0:
@@ -1078,12 +1006,6 @@ def draw_polygon(points, color):
         draw_pixel(points[0][0], points[0][1], color)
     elif len(points) == 2:
         draw_line(points[0][0], points[0][1], points[1][0], points[1][1], color)
-    elif _use_gpu:
-        glBegin(GL_POLYGON)
-        glColor3f(color[0]/255, color[1]/255, color[2]/255)
-        for x, y in points:
-            glVertex2f(x, y)
-        glEnd()
     else:
         pygame.draw.polygon(_internal_canvas.surface, color, points)
         _update_blend_canvas()
@@ -1136,15 +1058,6 @@ def draw_polygon_outline(points, color, thickness=1):
     elif len(points) == 2:
         draw_line(*points[0], *points[1], color)
     else:
-        if _use_gpu:
-            glBegin(GL_POLYGON)
-
-            for x, y in points:
-                glVertex2f(x, y)
-            glEnd()
-
-            return
-
         pygame.draw.polygon(_internal_canvas.surface, color, points, thickness)
         _update_blend_canvas()
 
@@ -1512,22 +1425,9 @@ def reset_text():
 
 ############# Canvases and blendmodes other drawing stuff #############
 
-def expertimental_use_gpu():
-    global _use_gpu
-    _use_gpu = True
-
-def expertimental_use_cpu():
-    global _use_gpu
-    _use_gpu = False
-    glFlush()
-
-def experimental_clear():
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
 # intialize a transparent canvas based on width and height
 def create_canvas(width, height):
     return Canvas(width, height)
-
 
 # convert arrays to canvases
 def convert_to_canvas(array):
@@ -1580,10 +1480,7 @@ def reset_canvas():
 
 def push_canvas(canvas):
     global _current_canvas, _internal_canvas
-    
-    if _use_gpu:
-        raise NotImplementedError("GPU support hasn't been implemented for this operation.")
-    
+        
     _canvas_stack.append(canvas)
     _current_canvas = canvas
 
@@ -1593,9 +1490,6 @@ def push_canvas(canvas):
 
 def pop_canvas():
     global _current_canvas, _internal_canvas
-
-    if _use_gpu:
-        raise NotImplementedError("GPU support hasn't been implemented for this operation.")
 
     _canvas_stack.pop()
 
