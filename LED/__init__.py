@@ -114,7 +114,6 @@ import socket
 import numpy as np
 import pygame
 from pygame._sdl2.video import Window
-import pygame.gfxdraw
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLUT import *
@@ -739,7 +738,7 @@ _clock = pygame.time.Clock()
 _WINDOW_SCALE = 12  # FACTOR TO _WINDOW_SCALE FOR GUI
 _WINDOW_WIDTH = _WIDTH * _WINDOW_SCALE
 _WINDOW_HEIGHT = _HEIGHT * _WINDOW_SCALE
-_SCREEN = pygame.display.set_mode((_WINDOW_WIDTH, _WINDOW_HEIGHT), DOUBLEBUF | OPENGL)  # None #
+_SCREEN = pygame.display.set_mode((_WINDOW_WIDTH, _WINDOW_HEIGHT), DOUBLEBUF)  # None #
 
 # Keyboard and mouse input
 _key_held = pygame.key.get_pressed()
@@ -2040,7 +2039,7 @@ def _update_window():
     _internal_canvas = _GAME_SCREEN
     _WINDOW_WIDTH = get_width_adjusted() * _WINDOW_SCALE
     _WINDOW_HEIGHT = get_height_adjusted() * _WINDOW_SCALE
-    _SCREEN = pygame.display.set_mode((_WINDOW_WIDTH, _WINDOW_HEIGHT), DOUBLEBUF | OPENGL)
+    _SCREEN = pygame.display.set_mode((_WINDOW_WIDTH, _WINDOW_HEIGHT), DOUBLEBUF)
 
     _NUMLEDS = get_width() * get_height()
     _pixels = [(0, 0, 0)] * _NUMLEDS
