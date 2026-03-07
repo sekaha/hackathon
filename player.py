@@ -183,7 +183,7 @@ class Player(SpaceObject):
         #         GREEN,
         #     )
 
-        self.hue = np.sin(game.game_time / 200) * 10 + self.hp * 1.5 - 10
+        self.hue = np.sin(game.game_time / 200) * 10 + self.hp * 1.4
         self.value = 50 + np.cos(game.game_time / 100) * 50 + self.hp * 1.2
         self.color = color_hsv(self.hue, self.saturation, self.value)
 

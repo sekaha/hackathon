@@ -4,11 +4,12 @@ from level.level import level
 from src.gui import hud, end_screen
 from src.lore import display_lore
 from src.game import game
+from main_menu import draw_menu
 import cProfile
 
-from OpenGL.GL import *
-from OpenGL.GLU import *
 
+# TODO: MAKE THE ASTEROIDS CHANGE SCALE UP WHEN HIT
+# TODO: try okhsv for color picking \:D
 
 def update():
     game.update()
@@ -75,6 +76,11 @@ def main():
                 draw()
             
             option = end_screen(score)
+        elif option == "Menu":
+            while True:
+                refresh()
+                draw_menu()
+                draw()
         elif option == "Quit":
             return
         else:

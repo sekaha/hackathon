@@ -2312,16 +2312,16 @@ def draw():
 
     # This draws and sends differently depending on the _orientation of the screen
     # Drawing Simulation Screen
-    # _SCREEN.blit(
-    #     pygame.transform.scale(
-    #         _GAME_SCREEN.surface,
-    #         (
-    #             get_width_adjusted() * _WINDOW_SCALE,
-    #             get_height_adjusted() * _WINDOW_SCALE,
-    #         ),
-    #     ),
-    #     (0, 0),
-    # )
+    _SCREEN.blit(
+        pygame.transform.scale(
+            _GAME_SCREEN.surface,
+            (
+                get_width_adjusted() * _WINDOW_SCALE,
+                get_height_adjusted() * _WINDOW_SCALE,
+            ),
+        ),
+        (0, 0),
+    )
 
     pygame.display.flip()
 

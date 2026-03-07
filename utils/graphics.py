@@ -5,6 +5,7 @@ from LED import *
 # Constants
 set_orientation(1)
 # set_size_adjusted(160, 120)
+# set_window_scale(8)
 W, H = get_width_adjusted(), get_height_adjusted()
 A = W/H
 FOV_V = np.pi / 4 # 45DEG VERT

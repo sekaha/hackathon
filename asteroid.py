@@ -87,7 +87,7 @@ class Asteroid(SpaceObject):
         else:
             self.dir = dir
 
-        self.scale = np.random.uniform(20, 60)  # np.random.uniform(3, 12)
+        self.scale = self.true_scale = np.random.uniform(20, 60)  # np.random.uniform(3, 12)
         self.max_brightness = 130
         self.brightness = self.max_brightness
         self.collision_radius *= self.scale
@@ -116,8 +116,8 @@ class Asteroid(SpaceObject):
 
         if self.type != 0:
             child1 = Asteroid(randint(0, self.type - 1))
-            child1.scale = self.scale * 0.5
-            child1.pos = self.pos + np.random.uniform(0, self.scale, 3)
+            child1.true_scale = self.true_scale * 0.5
+            child1.pos = self.pos + np.random.uniform(0, self.true_scale, 3)
             child1.hue = (self.hue + gauss(0, 30)) % 255
             child1.brightness = 255
             child1.speed = min(self.speed * np.random.uniform(1.5, 3), self.max_speed)
@@ -129,9 +129,9 @@ class Asteroid(SpaceObject):
             # add a second shape most the time and disregard shard budget
             if randint(0,2) != 0: 
                 child2 = Asteroid(randint(0, self.type - 1))
-                child2.pos = self.pos + np.random.uniform(0, self.scale, 3)
+                child2.pos = self.pos + np.random.uniform(0, self.true_scale, 3)
                 child2.hue = (self.hue + gauss(0, 30)) % 255
-                child2.scale = self.scale * 0.5
+                child2.true_scale = self.true_scale * 0.5
                 child2.brightness = 255
                 child2.speed = min(self.speed * np.random.uniform(1.5, 3), self.max_speed)
                 child2.dir = get_random_spherical(1)            
@@ -147,9 +147,9 @@ class Asteroid(SpaceObject):
                     type -= 1
                 
                 child3 = Asteroid(type)
-                child3.pos = self.pos + np.random.uniform(0, self.scale, 3)
+                child3.pos = self.pos + np.random.uniform(0, self.true_scale, 3)
                 child3.hue = (self.hue + gauss(0, 30)) % 255
-                child3.scale = self.scale * 0.5
+                child3.true_scale = self.true_scale * 0.5
                 child3.brightness = 255
                 child3.dir = get_random_spherical(1)
                 child3.speed = min(self.speed * np.random.uniform(1.5, 3), self.max_speed)
@@ -161,17 +161,19 @@ class Asteroid(SpaceObject):
             if 2 <= shard_count and self.type == 1 and randint(0,1) == 0:
                 shard = Shard(pos=np.array(self.pos), hue=self.hue, square=True)
                 shard_count -= 2
-                shard.scale = self.scale
+                shard.true_scale = self.true_scale
             else:
                 shard = Shard(pos=np.array(self.pos), hue=self.hue)
                 shard_count -= 1
-                shard.scale = self.scale * triangle_size[self.type]
+                shard.true_scale = self.true_scale * triangle_size[self.type]
 
 
     def draw_self(self):
         if self.brightness > self.max_brightness + 1:
             self.brightness += (self.max_brightness - self.brightness) * 0.1
             self.color = color_hsv(self.hue, 200, self.brightness)
+
+        self.scale = self.true_scale * (0.5 + 0.5 * self.brightness / self.max_brightness)
 
         # if game.game_time % 10 == 1:
         #     dist = np.linalg.norm(player.pos - self.pos)

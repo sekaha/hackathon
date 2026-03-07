@@ -39,6 +39,7 @@ class SpaceObject:
         check_remove=False,
         despawn_threshold=1,
     ):
+        # blend = False
         # Compute projected vertices (Numba-optimized)
         proj_verts = compute_projected_vertices(
             self.vertices,

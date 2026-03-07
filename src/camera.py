@@ -10,6 +10,9 @@ class Camera:
     def update(self):
         self.shake *= 0.96
 
+        if self.shake < 1:
+            self.shake = 0
+
     @property
     def rotation_matrix(self):
         return self.angle.rotation_matrix
